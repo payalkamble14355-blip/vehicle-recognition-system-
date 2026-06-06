@@ -48,6 +48,23 @@ st.markdown("""
     }
     .block-container { padding-top: 2rem !important; }
 
+    /* ── Top header / toolbar ── */
+    [data-testid="stHeader"],
+    [data-testid="stToolbar"],
+    header[data-testid="stHeader"],
+    .stApp > header {
+        background: var(--dark) !important;
+        border-bottom: 1px solid var(--border) !important;
+    }
+    /* Hide the decorative top colour strip */
+    [data-testid="stDecoration"],
+    #stDecoration {
+        display: none !important;
+    }
+    /* Share / star / pencil / github icons row */
+    [data-testid="stToolbar"] * { color: var(--muted) !important; }
+    [data-testid="stToolbar"] button:hover * { color: var(--cyan) !important; }
+
     /* ── Sidebar ── */
     [data-testid="stSidebar"] {
         background: #020d1c !important;
