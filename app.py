@@ -46,7 +46,13 @@ st.markdown("""
         color: var(--text) !important;
         font-family: 'Exo 2', sans-serif !important;
     }
-    .block-container { padding-top: 2rem !important; }
+    .block-container {
+        padding-top: 0rem !important;
+        margin-top: 0rem !important;
+    }
+    [data-testid="stAppViewBlockContainer"] {
+        padding-top: 1rem !important;
+    }
 
     /* ── Top header / toolbar ── */
     [data-testid="stHeader"],
@@ -264,12 +270,15 @@ def draw_prob_chart(probs):
     fig.tight_layout()
     return fig
 
+# Pastel palette matching reference
+PASTEL = {"Bus": "#F4A7A3", "Car": "#F9E4A0", "Motorcycle": "#A8D5A2", "Truck": "#A8C8E8"}
+
 # ── Dataset charts ────────────────────────────────────────────────────────────
 def draw_dataset_bar():
     fig, ax = plt.subplots(figsize=(6, 3.5))
     mpl_defaults(fig, ax)
     cls = list(DATASET_COUNTS.keys()); vals = list(DATASET_COUNTS.values())
-    clrs = [CLASS_COLORS[c] for c in cls]
+    clrs = [PASTEL[c] for c in cls]
     bars = ax.bar(cls, vals, color=clrs, edgecolor="none", width=0.55)
     ax.set_ylabel("Count", color='#5a8aaa', fontsize=9)
     ax.set_title("Images per Class", color='#00E5FF', fontsize=11, fontweight='bold', pad=12)
@@ -284,11 +293,11 @@ def draw_dataset_pie():
     fig, ax = plt.subplots(figsize=(5, 3.5))
     mpl_defaults(fig, ax)
     cls = list(DATASET_COUNTS.keys()); vals = list(DATASET_COUNTS.values())
-    clrs = ["#FF8C00", "#2ECC71", "#E74C3C", "#3498DB"]
+    clrs = [PASTEL[c] for c in cls]
     wedges, texts, autotexts = ax.pie(vals, labels=cls, colors=clrs, autopct='%1.1f%%',
         startangle=140, wedgeprops=dict(edgecolor=BG, linewidth=2),
         textprops=dict(color='#cde8f5', fontsize=9))
-    for at in autotexts: at.set_color('white'); at.set_fontsize(8); at.set_fontweight('bold')
+    for at in autotexts: at.set_color('#111'); at.set_fontsize(8); at.set_fontweight('bold')
     ax.set_title("Class Proportion", color='#00E5FF', fontsize=11, fontweight='bold')
     fig.tight_layout(); return fig
 
