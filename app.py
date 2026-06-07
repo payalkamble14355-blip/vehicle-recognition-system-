@@ -413,8 +413,73 @@ def section_header(title, subtitle=""):
 # HOME
 # ══════════════════════════════════════════════════════════════════════════════
 if page == "🏠 Home":
-    st.markdown("<div class='hero-title'>VEHICLE<br>RECOGNITION</div>", unsafe_allow_html=True)
-    st.markdown("<div class='hero-sub'>YOLOv8s · Deep Learning · Real-time Classification</div>", unsafe_allow_html=True)
+    st.markdown("""
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+    .vr-banner-wrap {
+        background: #0a0f1e;
+        border-radius: 12px;
+        padding: 48px 40px 40px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #1a2a4a;
+        margin-bottom: 2rem;
+    }
+    .vr-banner-grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+    }
+    .vr-banner-line {
+        width: 100%;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #00e5ff88, transparent);
+        margin-bottom: 28px;
+    }
+    .vr-banner-top {
+        font-family: 'Orbitron', sans-serif;
+        font-size: clamp(28px, 5vw, 52px);
+        font-weight: 700;
+        color: #00e5ff;
+        letter-spacing: 0.18em;
+        text-shadow: 0 0 18px #00e5ffaa, 0 0 40px #00e5ff44;
+        margin: 0;
+        line-height: 1.1;
+    }
+    .vr-banner-bottom {
+        font-family: 'Orbitron', sans-serif;
+        font-size: clamp(28px, 5vw, 52px);
+        font-weight: 900;
+        color: #00e5ff;
+        letter-spacing: 0.18em;
+        text-shadow: 0 0 18px #00e5ffaa, 0 0 40px #00e5ff44;
+        margin: 0;
+        line-height: 1.1;
+    }
+    .vr-banner-sub {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 13px;
+        color: #4a7a99;
+        letter-spacing: 0.15em;
+        margin-top: 20px;
+    }
+    .vr-banner-dot { margin: 0 8px; color: #00e5ff66; }
+    </style>
+    <div class="vr-banner-wrap">
+        <div class="vr-banner-grid"></div>
+        <div class="vr-banner-line"></div>
+        <p class="vr-banner-top">VEHICLE</p>
+        <p class="vr-banner-bottom">RECOGNITION</p>
+        <p class="vr-banner-sub">
+            YOLOv8s<span class="vr-banner-dot">·</span>Deep Learning<span class="vr-banner-dot">·</span>Real-time Classification
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
     c1,c2,c3,c4 = st.columns(4)
     for col, (num, lbl) in zip([c1,c2,c3,c4],[("4,081","Training Images"),("4","Vehicle Classes"),("97.2%","Val Accuracy"),("224px","Input Size")]):
