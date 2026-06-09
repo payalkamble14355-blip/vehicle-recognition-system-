@@ -2,20 +2,11 @@
 Vehicle Recognition System — Streamlit App
 ==========================================
 Technologies: Python · Streamlit · YOLOv8 · OpenCV
-
-Features:
-  • Upload an image  → classify vehicle (Bus / Car / Motorcycle / Truck)
-  • Upload a video   → process every frame and download annotated output
-
-Usage:
-  pip install streamlit ultralytics opencv-python numpy
-  streamlit run app.py
 """
 
 import os
-import time
-import tempfile
 import cv2
+import tempfile
 import numpy as np
 from pathlib import Path
 
@@ -25,12 +16,16 @@ from ultralytics import YOLO
 # ──────────────────────────────────────────────────────────────────────────────
 # Configuration
 # ──────────────────────────────────────────────────────────────────────────────
-MODEL_PATH = os.environ.get(
-    "MODEL_PATH",
-    "runs/vehicle_cls/capstone_v1/weights/best.pt"
-)
-CLASSES    = ["Bus", "Car", "Motorcycle", "Truck"]
-IMG_SIZE   = 224
+CLASSES = ["Bus", "Car", "Motorcycle", "Truck"]
+IMG_SIZE = 224
+
+# Candidate locations to auto-discover best.pt
+CANDIDATE_PATHS = [
+    "best.pt",
+    "weights/best.pt",
+    "runs/vehicle_cls/capstone_v1/weights/best.pt",
+    os.environ.get("MODEL_PATH", ""),
+]
 
 CLASS_COLORS = {
     "Bus":        "#FFB432",
@@ -46,20 +41,24 @@ CLASS_COLORS_BGR = {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Load model (cached so it only loads once)
+# Model loading
 # ──────────────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner="Loading YOLOv8 model…")
-def load_model():
-    if not Path(MODEL_PATH).exists():
-        return None
-    m = YOLO(MODEL_PATH)
+def load_model(path: str):
+    m = YOLO(path)
     return m
+
+def find_model_path():
+    """Return first existing candidate path, else None."""
+    for p in CANDIDATE_PATHS:
+        if p and Path(p).exists():
+            return p
+    return None
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Inference helpers
 # ──────────────────────────────────────────────────────────────────────────────
 def predict_frame(model, bgr_frame):
-    """Return (top_label, top_conf, probs_list) for a BGR numpy frame."""
     gray3  = cv2.cvtColor(cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR)
     result = model.predict(gray3, imgsz=IMG_SIZE, verbose=False)[0]
     probs  = result.probs.data.cpu().numpy()
@@ -67,9 +66,7 @@ def predict_frame(model, bgr_frame):
     top_conf = float(probs.max())
     return CLASSES[top_idx], top_conf, probs.tolist()
 
-
 def draw_overlay(frame, top_label, top_conf, probs):
-    """Draw prediction badge + top-3 bar chart onto frame in-place."""
     h, w  = frame.shape[:2]
     color = CLASS_COLORS_BGR.get(top_label, (200, 200, 200))
     FONT  = cv2.FONT_HERSHEY_DUPLEX
@@ -77,30 +74,24 @@ def draw_overlay(frame, top_label, top_conf, probs):
     label_text = f"{top_label}  {top_conf * 100:.1f}%"
     (tw, th), baseline = cv2.getTextSize(label_text, FONT, 1.0, 2)
     pad = 10
-    cv2.rectangle(frame, (10, 10), (10 + tw + pad*2, 10 + th + pad*2 + baseline), color, -1)
-    cv2.rectangle(frame, (10, 10), (10 + tw + pad*2, 10 + th + pad*2 + baseline), (255,255,255), 2)
-    cv2.putText(frame, label_text, (10 + pad, 10 + th + pad),
-                FONT, 1.0, (0, 0, 0), 2, cv2.LINE_AA)
+    cv2.rectangle(frame, (10, 10), (10+tw+pad*2, 10+th+pad*2+baseline), color, -1)
+    cv2.rectangle(frame, (10, 10), (10+tw+pad*2, 10+th+pad*2+baseline), (255,255,255), 2)
+    cv2.putText(frame, label_text, (10+pad, 10+th+pad), FONT, 1.0, (0,0,0), 2, cv2.LINE_AA)
 
-    sorted_idx  = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)[:3]
+    sorted_idx = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)[:3]
     bar_x, bar_y_start = 10, h - 130
     bar_max_w, bar_h, bar_gap = 180, 24, 8
-
     for rank, idx in enumerate(sorted_idx):
         cls_name = CLASSES[idx]
         prob     = probs[idx]
-        c        = CLASS_COLORS_BGR.get(cls_name, (180, 180, 180))
+        c        = CLASS_COLORS_BGR.get(cls_name, (180,180,180))
         y0       = bar_y_start + rank * (bar_h + bar_gap)
         filled_w = int(bar_max_w * prob)
-        cv2.rectangle(frame, (bar_x, y0), (bar_x + bar_max_w, y0 + bar_h), (50, 50, 50), -1)
-        cv2.rectangle(frame, (bar_x, y0), (bar_x + filled_w,  y0 + bar_h), c, -1)
+        cv2.rectangle(frame, (bar_x, y0), (bar_x+bar_max_w, y0+bar_h), (50,50,50), -1)
+        cv2.rectangle(frame, (bar_x, y0), (bar_x+filled_w,  y0+bar_h), c, -1)
         cv2.putText(frame, f"{cls_name}: {prob*100:.0f}%",
-                    (bar_x + bar_max_w + 6, y0 + bar_h - 4),
+                    (bar_x+bar_max_w+6, y0+bar_h-4),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255,255,255), 1, cv2.LINE_AA)
-
-    cv2.putText(frame, "Vehicle Recognition System",
-                (w - 260, h - 12), cv2.FONT_HERSHEY_SIMPLEX,
-                0.5, (180, 180, 180), 1, cv2.LINE_AA)
     return frame
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -111,14 +102,12 @@ def render_result(label, conf, probs):
     st.markdown(
         f"""
         <div style="background:{color}22;border:1.5px solid {color};
-                    border-radius:12px;padding:14px 20px;display:inline-block;
-                    margin-bottom:16px;">
+                    border-radius:12px;padding:14px 20px;display:inline-block;margin-bottom:16px;">
           <span style="color:{color};font-size:1.5rem;font-weight:700;">
-            {label} — {conf*100:.1f}%
+            {label} &nbsp;—&nbsp; {conf*100:.1f}%
           </span>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """, unsafe_allow_html=True,
     )
     sorted_pairs = sorted(enumerate(probs), key=lambda x: x[1], reverse=True)
     for idx, p in sorted_pairs:
@@ -131,94 +120,111 @@ def render_result(label, conf, probs):
               <div style="flex:1;background:#1a1a2e;border-radius:4px;height:18px;overflow:hidden;">
                 <div style="width:{p*100:.1f}%;height:100%;background:{c_hex};border-radius:4px;"></div>
               </div>
-              <span style="width:46px;font-size:0.85rem;text-align:right;">{p*100:.1f}%</span>
+              <span style="width:52px;font-size:0.85rem;text-align:right;">{p*100:.1f}%</span>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """, unsafe_allow_html=True,
         )
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Page layout
+# Page setup
 # ──────────────────────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Vehicle Recognition System",
-    page_icon="🚗",
-    layout="centered",
-)
+st.set_page_config(page_title="Vehicle Recognition System", page_icon="🚗", layout="centered")
 
 st.markdown("""
 <style>
-  .block-container { padding-top: 2rem; }
-  h1 { font-size: 1.8rem !important; }
+  .block-container { padding-top: 1.8rem; }
+  [data-testid="stFileUploadDropzone"] { border: 2px dashed #444; border-radius: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("# 🚗 Vehicle Recognition System")
-st.caption("YOLOv8 · Classes: Bus · Car · Motorcycle · Truck")
-
-model = load_model()
-
-if model is None:
-    st.error(
-        f"⚠️ Model weights not found at `{MODEL_PATH}`.\n\n"
-        "Set the `MODEL_PATH` environment variable to your `best.pt` path "
-        "and restart the app."
-    )
-    st.stop()
-
-# Sync CLASSES to model's internal order
-model_classes = [model.names[i] for i in sorted(model.names.keys())]
-if set(model_classes) == set(CLASSES):
-    CLASSES = model_classes
-
-st.success("✅ Model loaded and ready.")
+st.caption("YOLOv8s · Classes: Bus · Car · Motorcycle · Truck")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Tabs
+# Step 1 — Resolve model weights
+# ──────────────────────────────────────────────────────────────────────────────
+model_path = find_model_path()
+
+if model_path is None:
+    st.warning(
+        "**Model weights not found.**  \n"
+        "Upload your `best.pt` file below to get started. "
+        "You can also place it in the repo root or set the `MODEL_PATH` environment variable."
+    )
+    weights_file = st.file_uploader(
+        "Upload best.pt weights file", type=["pt"], key="weights_upload"
+    )
+    if weights_file is None:
+        st.info(
+            "**How to get `best.pt`:**\n"
+            "1. Run your notebook fully (Section 5 — Model Training).\n"
+            "2. Find `runs/vehicle_cls/capstone_v1/weights/best.pt` on your machine.\n"
+            "3. Upload it here, or add it to your GitHub repo root as `best.pt`."
+        )
+        st.stop()
+
+    # Save uploaded weights to a temp file that persists for the session
+    tmp_weights = tempfile.NamedTemporaryFile(delete=False, suffix=".pt")
+    tmp_weights.write(weights_file.read())
+    tmp_weights.flush()
+    model_path = tmp_weights.name
+    st.success("✅ Weights uploaded successfully!")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Step 2 — Load model
+# ──────────────────────────────────────────────────────────────────────────────
+try:
+    model = load_model(model_path)
+    model_classes = [model.names[i] for i in sorted(model.names.keys())]
+    if set(model_classes) == set(CLASSES):
+        CLASSES = model_classes
+except Exception as e:
+    st.error(f"❌ Failed to load model: {e}")
+    st.stop()
+
+st.success(f"✅ Model ready — classes: {', '.join(CLASSES)}")
+
+st.divider()
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Step 3 — Prediction tabs
 # ──────────────────────────────────────────────────────────────────────────────
 tab_img, tab_vid = st.tabs(["📷 Image", "🎬 Video"])
 
 # ── IMAGE TAB ─────────────────────────────────────────────────────────────────
 with tab_img:
-    st.subheader("Upload an Image")
+    st.subheader("Classify a Vehicle Image")
     uploaded_img = st.file_uploader(
-        "Choose an image file",
+        "Choose an image (JPG / PNG / BMP / WEBP)",
         type=["jpg", "jpeg", "png", "bmp", "webp"],
         key="img_upload",
     )
-
     if uploaded_img:
         img_bytes = np.frombuffer(uploaded_img.read(), np.uint8)
         frame     = cv2.imdecode(img_bytes, cv2.IMREAD_COLOR)
 
         col1, col2 = st.columns(2)
         with col1:
-            st.image(
-                cv2.cvtColor(frame, cv2.COLOR_BGR2RGB),
-                caption="Uploaded image",
-                use_container_width=True,
-            )
+            st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB),
+                     caption="Uploaded image", use_container_width=True)
 
-        with st.spinner("Classifying…"):
+        with st.spinner("Running inference…"):
             label, conf, probs = predict_frame(model, frame)
 
         with col2:
-            st.markdown("### Prediction")
+            st.markdown("### Result")
             render_result(label, conf, probs)
 
 # ── VIDEO TAB ─────────────────────────────────────────────────────────────────
 with tab_vid:
-    st.subheader("Upload a Video")
-    st.info(
-        "Each frame will be annotated with the predicted vehicle class. "
-        "Download the processed video when done."
-    )
+    st.subheader("Annotate a Vehicle Video")
+    st.info("Every frame is classified and labelled. Download the annotated MP4 when done.")
+
     uploaded_vid = st.file_uploader(
-        "Choose a video file",
+        "Choose a video (MP4 / AVI / MOV / MKV)",
         type=["mp4", "avi", "mov", "mkv"],
         key="vid_upload",
     )
-
     if uploaded_vid:
         suffix = Path(uploaded_vid.name).suffix
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_in:
@@ -228,18 +234,15 @@ with tab_vid:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_out:
             tmp_out_path = tmp_out.name
 
-        cap = cv2.VideoCapture(tmp_in_path)
+        cap   = cv2.VideoCapture(tmp_in_path)
         fps   = cap.get(cv2.CAP_PROP_FPS) or 25
         w     = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h     = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
-        out   = cv2.VideoWriter(
-            tmp_out_path,
-            cv2.VideoWriter_fourcc(*"mp4v"),
-            fps, (w, h)
-        )
+        out   = cv2.VideoWriter(tmp_out_path,
+                                cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
 
-        progress = st.progress(0, text="Processing video…")
+        bar   = st.progress(0, text="Processing…")
         count = 0
         while True:
             ret, frame = cap.read()
@@ -249,19 +252,18 @@ with tab_vid:
             label, conf, probs = predict_frame(model, frame)
             draw_overlay(frame, label, conf, probs)
             out.write(frame)
-            progress.progress(min(count / total, 1.0), text=f"Frame {count} / {total}")
+            bar.progress(min(count / total, 1.0), text=f"Frame {count} / {total}")
 
         cap.release()
         out.release()
-        progress.empty()
+        bar.empty()
 
-        st.success(f"✅ Processed {count} frames.")
-
+        st.success(f"✅ Done — {count} frames processed.")
         with open(tmp_out_path, "rb") as f:
             st.download_button(
                 label="⬇ Download Annotated Video",
                 data=f.read(),
-                file_name=f"annotated_{uploaded_vid.name.replace(suffix, '.mp4')}",
+                file_name="annotated_" + uploaded_vid.name.replace(suffix, ".mp4"),
                 mime="video/mp4",
             )
 
