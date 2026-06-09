@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import tempfile
 import os
 import time
+import av
+from fractions import Fraction
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -235,7 +237,7 @@ with tab2:
 
             out_path      = tempfile.mktemp(suffix="_out.mp4")
             out_container = av.open(out_path, mode='w')
-            out_stream    = out_container.add_stream('mpeg4', rate=fps)
+            out_stream = out_container.add_stream('mpeg4', rate=int(fps))
             out_stream.width   = stream.width
             out_stream.height  = stream.height
             out_stream.pix_fmt = 'yuv420p'
